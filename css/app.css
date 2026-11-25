@@ -281,3 +281,26 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--verde); }
 .acceso { border: 1px solid var(--borde); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .fila-tel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fila-tel .btn { min-height: 40px; }
+
+/* Fotos */
+.oculto { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.btn-fotos { cursor: pointer; position: relative; }
+.btn-fotos:focus-within { outline: 3px solid #7DB8A2; outline-offset: 1px; }
+.vano-foto { position: absolute; bottom: 4px; right: 5px; color: var(--gris); display: flex; }
+.vano-foto svg { width: 14px; height: 14px; }
+.vano-foto.en-cola { color: #B7791F; }
+.fila-fotos { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--gris); border: 1px solid var(--borde); border-radius: 12px; padding: 8px 8px 8px 12px; }
+.fila-fotos span { flex: 1; }
+.estado-error { background: #FDE8E7; color: var(--rojo); }
+.rojo { color: var(--rojo); }
+.pie .btn-fotos { min-width: 0; }
+@media (max-width: 420px) { .pie .btn-fotos span { display: none; } .pie .btn-fotos { padding: 0 14px; } }
+
+/* Certificado */
+.campos-fecha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.campos-fecha label:last-child { grid-column: 1 / -1; }
+@media (min-width: 560px) { .campos-fecha { grid-template-columns: repeat(3, 1fr); } .campos-fecha label:last-child { grid-column: auto; } }
+label.btn { flex-direction: row; }
+.fila-botones { display: flex; gap: 10px; flex-wrap: wrap; }
+.fila-botones .btn { flex: 1; }
+.hoja .aviso { margin: 0; }

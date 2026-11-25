@@ -5,6 +5,8 @@ import {
   zonasDe, normalizar, fechaAR, telefono
 } from './logica.js';
 import { VERSION_APP } from './config.js';
+import * as fotos from './fotos.js';
+import { generarPDF, detalleSugerido, nombreArchivo } from './certificado.js';
 
 // ---------------- Estado y utilidades ----------------
 
@@ -14,7 +16,9 @@ const S = {
   lineas: {},
   subs: [],
   busqueda: '', filtro: 'todos', seleccion: new Set(), hoja: null, confirmar: null,
-  instalar: null
+  instalar: null,
+  cola: [], colaRes: fotos.resumen([]), subiendo: [],
+  cert: null
 };
 const app = document.getElementById('app');
 
@@ -52,6 +56,9 @@ const icono = {
   doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
   tel: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
   ok: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+  camara: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  descarga: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  compartir: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
   buscar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'
 };
 
@@ -81,9 +88,19 @@ function avisoInstalar() {
   return '';
 }
 
+function avisoFotos() {
+  const r = S.colaRes;
+  if (!r.envios) return '';
+  const subiendo = S.subiendo.length;
+  if (r.conError) {
+    return `<div class="aviso aviso-rojo" role="status">${icono.camara}<div><strong>${r.conError} envío${r.conError === 1 ? '' : 's'} de fotos con problemas</strong><span>Revisalos: no se pueden enviar así.</span></div><button class="btn btn-chico" data-accion="ver-cola">Ver</button></div>`;
+  }
+  return `<div class="aviso aviso-ambar" role="status">${icono.camara}<div><strong>${r.fotos} foto${r.fotos === 1 ? '' : 's'} ${navigator.onLine ? 'enviándose…' : 'esperando señal'}</strong><span>${navigator.onLine ? 'Mantené la app abierta hasta que terminen.' : 'Quedan guardadas en el equipo y se envían solas al volver la conexión, con la app abierta.'}</span></div><button class="btn btn-chico btn-secundario" data-accion="ver-cola">Ver</button></div>`;
+}
+
 function refrescarAvisos() {
   const el = app.querySelector('[data-avisos]');
-  if (el) el.innerHTML = avisoConexion() + avisoInstalar();
+  if (el) el.innerHTML = avisoConexion() + avisoFotos() + (el.dataset.avisos === 'inicio' ? avisoInstalar() : '');
 }
 
 // ---------------- Router ----------------
@@ -96,7 +113,7 @@ function ruta() {
 function navegar(h) { if (location.hash !== h) location.hash = h; else enrutar(); }
 
 function enrutar() {
-  S.hoja = null; S.confirmar = null;
+  S.hoja = null; S.confirmar = null; S.hojaInicio = null; limpiarCert();
   if (!S.user) return vistaLogin();
   if (!S.perfil || !puedeUsar()) return vistaSinPermiso();
   const r = ruta();
@@ -111,12 +128,14 @@ function enrutar() {
 function repintar() {
   const r = ruta();
   if (!S.user || !puedeUsar()) return;
+  if (S.hoja === 'cert') return refrescarAvisos(); // no borrar lo que se está escribiendo
   if (r.a === 't') conservarScroll(vistaTramo);
   else pintarListaInicio();
 }
 
 window.addEventListener('hashchange', enrutar);
-window.addEventListener('online', refrescarAvisos);
+window.addEventListener('online', () => { refrescarAvisos(); enviarFotos(); });
+setInterval(() => { if (S.colaRes.envios) enviarFotos(); }, 60000);
 window.addEventListener('offline', refrescarAvisos);
 
 // ---------------- Vistas: acceso ----------------
@@ -180,7 +199,7 @@ function vistaInicio() {
       sub: `${p.nombre || p.usuario || ''} · ${esSup() ? 'Supervisor' : 'Inspector'}`,
       extra: `<button class="btn-icono" data-accion="salir" aria-label="Salir">${icono.salir}</button>`
     })}
-    <div data-avisos>${avisoConexion()}${avisoInstalar()}</div>
+    <div data-avisos="inicio">${avisoConexion()}${avisoFotos()}${avisoInstalar()}</div>
     <div class="buscador">
       ${icono.buscar}
       <input type="search" data-buscar placeholder="Buscar línea o tramo" value="${esc(S.busqueda)}" aria-label="Buscar línea o tramo">
@@ -273,9 +292,10 @@ function vistaTramo() {
       titulo: t.linea,
       sub: `${t.zona} · Tramo ${t.tramoTxt || t.tramo}`,
       volver: '#/',
-      extra: `<button class="btn-icono texto" data-accion="accesos">${icono.llave}<span class="solo-ancho">Accesos y OT</span></button>`
+      extra: `<button class="btn-icono texto" data-accion="cert" aria-label="Certificado en PDF">${icono.doc}<span class="solo-ancho">Certificado</span></button>
+              <button class="btn-icono texto" data-accion="accesos" aria-label="Accesos y OT">${icono.llave}<span class="solo-ancho">Accesos y OT</span></button>`
     })}
-    <div data-avisos>${avisoConexion()}</div>
+    <div data-avisos>${avisoConexion()}${avisoFotos()}</div>
     <div class="resumen">
       <div class="fila-esp"><strong>${av.cert} de ${av.total} certificados · ${av.pct}%</strong>${privados.length ? `<span class="chico gris">Privado: ${esc(privados.join(', '))}</span>` : ''}</div>
       ${barraEstados(av)}
@@ -297,12 +317,14 @@ function vistaTramo() {
         ${visibles.map(v => {
           const e = infoEstado(v.estado);
           const sel = S.seleccion.has(v.clave);
+          const enCola = S.colaRes.porVano[t.id + '|' + v.clave] || 0;
           return `<button class="vano ${sel ? 'elegido' : ''} ${e.id === CERTIFICADO ? 'vano-cert' : ''}" style="--c:${e.color};--f:${e.fondo}" data-accion="elegir" data-clave="${esc(v.clave)}" aria-pressed="${sel}"
-            aria-label="Vano ${esc(v.v)}, ${esc(e.id)}${v.fecha ? ', ' + fechaAR(v.fecha) : ''}">
+            aria-label="Vano ${esc(v.v)}, ${esc(e.id)}${v.fecha ? ', ' + fechaAR(v.fecha) : ''}${v.fotos ? ', con fotos' : ''}">
             ${sel ? `<span class="tilde">${icono.ok}</span>` : ''}
             <strong>${esc(v.v)}</strong>
             <span class="vano-estado">${esc(e.corto)}</span>
             ${v.fecha ? `<span class="vano-fecha">${fechaAR(v.fecha).slice(0, 5)}</span>` : ''}
+            ${v.fotos || enCola ? `<span class="vano-foto ${enCola ? 'en-cola' : ''}" title="${enCola ? enCola + ' en cola' : v.fotos + ' enviadas'}">${icono.camara}</span>` : ''}
           </button>`;
         }).join('')}
       </div>
@@ -310,12 +332,170 @@ function vistaTramo() {
     <footer class="pie">
       ${nSel
         ? `<div class="pie-texto"><strong>${nSel} vano${nSel === 1 ? '' : 's'} elegido${nSel === 1 ? '' : 's'}</strong><button class="enlace" data-accion="ninguno">Quitar selección</button></div>
+           ${nSel === 1 ? botonFotos([...S.seleccion][0], 'btn-secundario') : ''}
            <button class="btn btn-primario" data-accion="hoja-estado">Cambiar estado</button>`
         : `<div class="pie-texto"><strong>${esc(t.linea)}</strong><span class="${t._pendiente ? 'ambar' : 'verde'}">${t._pendiente ? 'Cambios sin enviar · se envían al volver la señal' : (S.meta.desdeCache && !navigator.onLine ? 'Sin señal · nada pendiente' : 'Todo enviado')}</span></div>`}
     </footer>
     ${S.hoja === 'estado' ? hojaEstado(t) : ''}
     ${S.hoja === 'accesos' ? hojaAccesos(t, linea) : ''}
+    ${S.hoja === 'cert' ? hojaCertificado(t) : ''}
+    ${S.hoja === 'cola' ? hojaCola() : ''}
   </div>`);
+}
+
+/** Botón que abre la cámara o la galería (en PC, el explorador de archivos). */
+function botonFotos(clave, clase = 'btn-secundario', texto = 'Fotos') {
+  return `<label class="btn ${clase} btn-fotos">${icono.camara}<span>${texto}</span>
+    <input type="file" accept="image/*" multiple data-fotos="${esc(clave)}" class="oculto"></label>`;
+}
+
+function lineaFotos(t, v) {
+  const enCola = S.colaRes.porVano[t.id + '|' + v.clave] || 0;
+  const partes = [];
+  if (v.fotos) partes.push(`${v.fotos} enviada${v.fotos === 1 ? '' : 's'} a SharePoint${v.fotoFecha ? ' · última ' + fechaAR(v.fotoFecha) : ''}`);
+  if (enCola) partes.push(`${enCola} en cola`);
+  return `<div class="fila-fotos">${icono.camara}<span>${partes.length ? esc(partes.join(' · ')) : 'Sin fotos'}</span>${botonFotos(v.clave, 'btn-chico btn-secundario', 'Agregar')}</div>`;
+}
+
+// ---------------- Certificado en PDF ----------------
+
+function limpiarCert() {
+  if (S.cert && S.cert.url) URL.revokeObjectURL(S.cert.url);
+  S.cert = null;
+}
+
+function abrirCert(t) {
+  limpiarCert();
+  S.cert = { tramoId: t.id, inicio: '', fin: '', fechaCert: '', detalle: detalleSugerido(t), generando: false, url: '', nombre: '', archivo: null, error: '' };
+  const cert = Object.values(t.vanos || {}).filter(v => v.activo !== false && v.estado === CERTIFICADO).map(v => v.fecha || '').sort().pop();
+  S.cert.fechaCert = cert || '';
+}
+
+function hojaCertificado(t) {
+  const c = S.cert;
+  if (!c) return '';
+  const av = avanceTramo(t);
+  return `
+  <div class="velo" data-accion="cerrar-hoja">
+    <div class="hoja hoja-alta" role="dialog" aria-modal="true" aria-label="Certificado del tramo" data-accion="nada">
+      <div><span class="etiqueta">Certificado en PDF</span><strong class="hoja-titulo">Tramo ${esc(t.tramoTxt || t.tramo)} · ${esc(t.linea)}</strong></div>
+      ${av.cert < av.total ? `<p class="aviso aviso-ambar"><span>El tramo tiene <strong>${av.cert} de ${av.total}</strong> vanos certificados. Los que no están certificados salen con su estado, y los pendientes en blanco.</span></p>` : ''}
+      <div class="campos-fecha">
+        <label>Fecha inicio trabajo<input type="date" data-cert="inicio" value="${esc(c.inicio)}"></label>
+        <label>Fecha fin de trabajo<input type="date" data-cert="fin" value="${esc(c.fin)}"></label>
+        <label>Fecha de certificación<input type="date" data-cert="fechaCert" value="${esc(c.fechaCert)}"></label>
+      </div>
+      <label>Detalle y pendientes<textarea data-cert="detalle" rows="4">${esc(c.detalle)}</textarea></label>
+      <p class="chico gris">Las fechas que dejes vacías salen en blanco para completarlas a mano. Las firmas se completan en papel.</p>
+      ${c.error ? `<p class="error" role="alert">${esc(c.error)}</p>` : ''}
+      ${c.url ? `
+        <div class="aviso aviso-verde"><div><strong>PDF listo</strong><span>${esc(c.nombre)}</span></div></div>
+        <div class="fila-botones">
+          <a class="btn btn-primario" href="${c.url}" download="${esc(c.nombre)}">${icono.descarga}Descargar</a>
+          ${puedeCompartir() ? `<button class="btn btn-secundario" data-accion="compartir-pdf">${icono.compartir}Compartir</button>` : ''}
+        </div>
+        <button class="enlace" data-accion="generar-pdf">Volver a generar con los cambios</button>`
+      : `<button class="btn btn-primario btn-grande" data-accion="generar-pdf" ${c.generando ? 'disabled' : ''}>${c.generando ? 'Generando…' : `${icono.doc}Generar PDF`}</button>`}
+      <button class="btn btn-secundario" data-accion="cerrar-hoja">Cerrar</button>
+    </div>
+  </div>`;
+}
+
+function puedeCompartir() {
+  try {
+    return !!(navigator.canShare && S.cert && S.cert.archivo && navigator.canShare({ files: [S.cert.archivo] }));
+  } catch (_) { return false; }
+}
+
+async function generarCert() {
+  const t = tramoActual();
+  const c = S.cert;
+  if (!t || !c || c.generando) return;
+  c.generando = true; c.error = '';
+  if (c.url) { URL.revokeObjectURL(c.url); c.url = ''; }
+  conservarScroll(vistaTramo);
+  try {
+    const bytes = await generarPDF(t, c, S.perfil.nombre || S.perfil.usuario || '');
+    if (S.cert !== c) return; // se cerró mientras se generaba
+    c.nombre = nombreArchivo(t);
+    c.archivo = new File([bytes], c.nombre, { type: 'application/pdf' });
+    c.url = URL.createObjectURL(c.archivo);
+  } catch (err) {
+    console.error(err);
+    c.error = navigator.onLine ? 'No se pudo generar el PDF: ' + err.message
+      : 'No se pudo generar el PDF sin señal. Abrilo una vez con conexión para que la app guarde lo necesario.';
+  }
+  c.generando = false;
+  if (S.cert === c && S.hoja === 'cert') conservarScroll(vistaTramo);
+}
+
+// ---------------- Cola de fotos ----------------
+
+function hojaCola() {
+  const cola = S.cola;
+  return `
+  <div class="velo" data-accion="cerrar-hoja">
+    <div class="hoja hoja-alta" role="dialog" aria-modal="true" aria-label="Fotos sin enviar" data-accion="nada">
+      <div><span class="etiqueta">Fotos sin enviar</span><strong class="hoja-titulo">${cola.length ? `${S.colaRes.fotos} foto${S.colaRes.fotos === 1 ? '' : 's'} en ${cola.length} envío${cola.length === 1 ? '' : 's'}` : 'Todo enviado'}</strong></div>
+      ${cola.map(it => `
+        <div class="acceso">
+          <div class="fila-esp"><strong>Vano ${esc(it.vano)} · ${it.fotos.length} foto${it.fotos.length === 1 ? '' : 's'}</strong>
+            <span class="estado ${it.definitivo ? 'estado-error' : 'estado-pend'}">${it.definitivo ? 'No se puede enviar' : S.subiendo.includes(it.id) ? 'Enviando' : 'En cola'}</span></div>
+          <span class="chico">Tramo ${esc(it.tramoTxt)} · ${esc(it.linea)}</span>
+          ${it.error ? `<span class="chico ${it.definitivo ? 'rojo' : 'gris'}">${esc(it.error)}${it.intentos ? ` · ${it.intentos} intento${it.intentos === 1 ? '' : 's'}` : ''}</span>` : ''}
+          ${it.definitivo ? `<button class="btn btn-chico btn-secundario" data-accion="descartar-foto" data-id="${esc(it.id)}">Descartar</button>` : ''}
+        </div>`).join('')}
+      ${cola.some(it => !it.definitivo) ? `<button class="btn btn-primario" data-accion="enviar-cola" ${navigator.onLine ? '' : 'disabled'}>${navigator.onLine ? 'Enviar ahora' : 'Sin señal'}</button>` : ''}
+      <button class="btn btn-secundario" data-accion="cerrar-hoja">Cerrar</button>
+    </div>
+  </div>`;
+}
+
+async function refrescarCola() {
+  try {
+    S.cola = await fotos.listar();
+  } catch (err) {
+    console.warn('cola de fotos', err);
+    S.cola = [];
+  }
+  S.colaRes = fotos.resumen(S.cola);
+  if (!S.user || !puedeUsar()) return;
+  if (S.hoja === 'cert') return refrescarAvisos();
+  if (ruta().a === 't') conservarScroll(vistaTramo);
+  else { refrescarAvisos(); if (S.hojaInicio === 'cola') pintarCola(); }
+}
+
+async function enviarFotos({ avisar = false } = {}) {
+  if (!S.user || !navigator.onLine) return;
+  const pendientes = S.cola.filter(it => !it.definitivo);
+  if (!pendientes.length) return;
+  S.subiendo = pendientes.map(it => it.id);
+  const r = await fotos.procesar();
+  S.subiendo = [];
+  await refrescarCola();
+  if (r.enviadas) toast(`${r.enviadas} foto${r.enviadas === 1 ? '' : 's'} enviada${r.enviadas === 1 ? '' : 's'} a SharePoint`, 'ok');
+  if (r.error && (avisar || !r.enviadas)) toast(r.error, 'error');
+}
+
+async function agregarFotos(input) {
+  const t = tramoActual();
+  const clave = input.dataset.fotos;
+  const archivos = [...(input.files || [])];
+  input.value = '';
+  if (!t || !archivos.length) return;
+  const v = t.vanos[clave];
+  if (!v) return;
+  toast(`Preparando ${archivos.length} foto${archivos.length === 1 ? '' : 's'}…`);
+  try {
+    const n = await fotos.encolar(t, { clave, ...v }, archivos, S.perfil);
+    if (!n) return toast('Elegí archivos de imagen.', 'error');
+    await refrescarCola();
+    toast(`${n} foto${n === 1 ? '' : 's'} del vano ${v.v} ${navigator.onLine ? 'enviándose' : 'guardada' + (n === 1 ? '' : 's') + ' hasta tener señal'}`, 'ok');
+    enviarFotos();
+  } catch (err) {
+    console.error(err);
+    toast('No se pudo guardar la foto: ' + err.message, 'error');
+  }
 }
 
 function hojaEstado(t) {
@@ -345,6 +525,7 @@ function hojaEstado(t) {
         <strong class="hoja-titulo">${uno ? `Vano ${esc(uno.v)}` : `${n} vanos`}</strong>
       </div>
       ${uno ? `<p class="gris">Ahora: <strong style="color:${actual.color}">${esc(actual.id)}</strong>${uno.fecha ? ` desde el ${fechaAR(uno.fecha)}` : ''}${uno.porNombre ? ` · ${esc(uno.porNombre)}` : ''}</p>` : ''}
+      ${uno ? lineaFotos(t, { clave: claves[0], ...uno }) : ''}
       <div class="opciones-estado">
         ${ESTADOS.map(e => `<button class="opcion-estado ${actual && actual.id === e.id ? 'actual' : ''} ${e.id === CERTIFICADO ? 'opcion-cert' : ''}" style="--c:${e.color};--f:${e.fondo}" data-accion="estado" data-valor="${esc(e.id)}">
           <i></i><span>${esc(e.id)}</span></button>`).join('')}
@@ -405,6 +586,11 @@ app.addEventListener('submit', async e => {
 
 app.addEventListener('input', e => {
   if (e.target.matches('[data-buscar]')) { S.busqueda = e.target.value; pintarListaInicio(); }
+  if (e.target.matches('[data-cert]') && S.cert) S.cert[e.target.dataset.cert] = e.target.value;
+});
+
+app.addEventListener('change', e => {
+  if (e.target.matches('input[data-fotos]')) agregarFotos(e.target);
 });
 
 app.addEventListener('click', async e => {
@@ -414,7 +600,7 @@ app.addEventListener('click', async e => {
   if (acc === 'nada') return;
   if (acc === 'cerrar-hoja') {
     if (el.classList.contains('velo') && e.target !== el) return;
-    S.hoja = null; S.confirmar = null; conservarScroll(vistaTramo); return;
+    S.hoja = null; S.confirmar = null; limpiarCert(); conservarScroll(vistaTramo); return;
   }
   if (acc === 'salir') { limpiarSubs(); await db.salir(); location.hash = '#/'; return; }
   if (acc === 'reiniciar') { location.reload(); return; }
@@ -435,6 +621,27 @@ app.addEventListener('click', async e => {
   if (acc === 'ninguno') { S.seleccion = new Set(); conservarScroll(vistaTramo); return; }
   if (acc === 'hoja-estado') { S.hoja = 'estado'; S.confirmar = null; conservarScroll(vistaTramo); return; }
   if (acc === 'accesos') { S.hoja = 'accesos'; conservarScroll(vistaTramo); return; }
+  if (acc === 'cert') { abrirCert(tramoActual()); S.hoja = 'cert'; conservarScroll(vistaTramo); return; }
+  if (acc === 'generar-pdf') return generarCert();
+  if (acc === 'compartir-pdf') {
+    try {
+      await navigator.share({ files: [S.cert.archivo], title: S.cert.nombre });
+    } catch (err) {
+      if (err.name !== 'AbortError') toast('No se pudo compartir: ' + err.message, 'error');
+    }
+    return;
+  }
+  if (acc === 'ver-cola') {
+    if (ruta().a !== 't') { S.hojaInicio = 'cola'; return pintarCola(); }
+    S.hoja = 'cola'; conservarScroll(vistaTramo); return;
+  }
+  if (acc === 'enviar-cola') { enviarFotos({ avisar: true }); return; }
+  if (acc === 'descartar-foto') {
+    await fotos.descartar(el.dataset.id);
+    await refrescarCola();
+    if (S.hojaInicio === 'cola') pintarCola();
+    return;
+  }
   if (acc === 'cancelar') { S.confirmar = null; conservarScroll(vistaTramo); return; }
   if (acc === 'estado') {
     const estado = el.dataset.valor;
@@ -458,8 +665,27 @@ function aplicar(estado) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && S.hoja) { S.hoja = null; S.confirmar = null; conservarScroll(vistaTramo); }
+  if (e.key === 'Escape' && S.hoja) { S.hoja = null; S.confirmar = null; limpiarCert(); conservarScroll(vistaTramo); }
+  if (e.key === 'Escape' && S.hojaInicio) cerrarCola();
 });
+
+// En la pantalla de inicio la lista de fotos se muestra encima, sin cambiar de pantalla.
+function pintarCola() {
+  cerrarCola(false);
+  const d = document.createElement('div');
+  d.dataset.colaInicio = '';
+  d.innerHTML = hojaCola();
+  d.addEventListener('click', e => {
+    const el = e.target.closest('[data-accion]');
+    if (!el) return;
+    if (el.dataset.accion === 'cerrar-hoja' && (!el.classList.contains('velo') || e.target === el)) { e.stopPropagation(); cerrarCola(); }
+  });
+  app.appendChild(d);
+}
+function cerrarCola(todo = true) {
+  app.querySelectorAll('[data-cola-inicio]').forEach(x => x.remove());
+  if (todo) S.hojaInicio = null;
+}
 
 // ---------------- Inicio de la app ----------------
 
@@ -507,4 +733,7 @@ db.alCambiarSesion(async user => {
   S.perfil = await db.obtenerPerfil(user);
   if (puedeUsar()) escucharDatos();
   enrutar();
+  if (puedeUsar()) refrescarCola().then(() => enviarFotos());
+  // Deja guardada la librería del PDF para poder generar certificados sin señal
+  if (puedeUsar() && navigator.onLine) setTimeout(() => import('pdf-lib').catch(() => null), 4000);
 });

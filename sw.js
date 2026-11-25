@@ -1,15 +1,16 @@
 // Service worker: guarda la app en el teléfono para que abra sin señal.
 // Los datos (tramos, vanos) los maneja Firestore con su propia caché sin conexión.
-const VERSION = 'poda-v1.0.0';
+const VERSION = 'poda-v1.1.0';
 const APP = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
-  './js/main.js', './js/db.js', './js/logica.js', './js/config.js',
-  './icons/icono.svg', './icons/icono-180.png', './icons/icono-192.png', './icons/icono-512.png'
+  './js/main.js', './js/db.js', './js/logica.js', './js/config.js', './js/fotos.js', './js/certificado.js',
+  './icons/icono.svg', './icons/icono-180.png', './icons/icono-192.png', './icons/icono-512.png', './icons/epec.png'
 ];
 const CDN = [
   'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js',
   'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js',
-  'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js'
+  'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js',
+  'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm'
 ];
 const HOSTS_CDN = ['www.gstatic.com', 'cdn.jsdelivr.net'];
 
@@ -44,7 +45,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Librerías externas (Firebase): la copia guardada primero
+  // Librerías externas (Firebase, pdf-lib): la copia guardada primero
   if (HOSTS_CDN.includes(url.hostname)) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => {
       if (r.ok) { const copia = r.clone(); caches.open(VERSION).then(c => c.put(req, copia)); }
