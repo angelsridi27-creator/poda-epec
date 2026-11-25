@@ -18,6 +18,7 @@ const S = {
   busqueda: '', filtro: 'todos', seleccion: new Set(), hoja: null, confirmar: null,
   instalar: null,
   cola: [], colaRes: fotos.resumen([]), subiendo: [],
+  zona: leerPref('poda-zona') || '',
   cert: null
 };
 const app = document.getElementById('app');
@@ -56,6 +57,8 @@ const icono = {
   doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
   tel: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
   ok: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+  sol: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  luna: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
   camara: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   descarga: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
   compartir: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
@@ -147,7 +150,8 @@ function vistaCargando(msg = 'Cargando…') {
 function vistaLogin(error = '') {
   render(`
   <div class="login">
-    <div class="login-marca"><span class="marca-chica">EPEC · Redes de Alta Tensión</span><h1>Certificación de poda</h1></div>
+    <div class="login-arriba">${botonTema()}</div>
+    <div class="login-marca"><span class="marca-chica">EPEC · Redes de Alta Tensión</span><h1>Certificación de poda</h1><span class="firma">${FIRMA}</span></div>
     <form class="tarjeta login-form" data-form="login" novalidate>
       <label>Usuario<input name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="ej.: perez.j"></label>
       <label>Contraseña<input name="clave" type="password" autocomplete="current-password" required></label>
@@ -172,6 +176,23 @@ function vistaSinPermiso() {
   </div>`);
 }
 
+// ---------------- Preferencias del equipo: tema y zona ----------------
+
+function leerPref(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+function guardarPref(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (_) { /* sin almacenamiento */ } }
+
+function temaActual() { return document.documentElement.dataset.tema === 'oscuro' ? 'oscuro' : 'claro'; }
+function aplicarTema(tema) {
+  document.documentElement.dataset.tema = tema;
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = tema === 'oscuro' ? '#0B1411' : '#0B5D44';
+}
+function botonTema() {
+  const osc = temaActual() === 'oscuro';
+  return `<button class="btn-icono" data-accion="tema" aria-label="${osc ? 'Pasar a modo claro' : 'Pasar a modo oscuro'}" title="${osc ? 'Modo claro' : 'Modo oscuro'}">${osc ? icono.sol : icono.luna}</button>`;
+}
+const FIRMA = 'Desarrollado por Angel Sridi';
+
 function encabezado({ titulo, sub = '', volver = '', extra = '' }) {
   return `
   <header class="barra">
@@ -194,13 +215,15 @@ function vistaInicio() {
   const p = S.perfil;
   render(`
   <div class="pantalla ancha">
+    <div class="firma-barra">${FIRMA}</div>
     ${encabezado({
       titulo: 'Certificación de poda',
       sub: `${p.nombre || p.usuario || ''} · ${esSup() ? 'Supervisor' : 'Inspector'}`,
-      extra: `<button class="btn-icono" data-accion="salir" aria-label="Salir">${icono.salir}</button>`
+      extra: `${botonTema()}<button class="btn-icono" data-accion="salir" aria-label="Salir">${icono.salir}</button>`
     })}
     <div data-avisos="inicio">${avisoConexion()}${avisoFotos()}${avisoInstalar()}</div>
-    <div class="buscador">
+    <div data-zonas></div>
+    <div class="buscador" data-caja-buscar>
       ${icono.buscar}
       <input type="search" data-buscar placeholder="Buscar línea o tramo" value="${esc(S.busqueda)}" aria-label="Buscar línea o tramo">
     </div>
@@ -228,14 +251,46 @@ function pintarListaInicio() {
     return;
   }
 
+  const todas = zonasDe(S.lista);
+  if (S.zona && !todas.some(z => z.nombre === S.zona)) { S.zona = ''; guardarPref('poda-zona', ''); }
+  if (!S.zona && todas.length === 1) S.zona = todas[0].nombre;
+  const cajaZonas = app.querySelector('[data-zonas]');
+  const cajaBuscar = app.querySelector('[data-caja-buscar]');
+
+  // Sin zona elegida: primero se elige la zona
+  if (!S.zona) {
+    if (cajaZonas) cajaZonas.innerHTML = '';
+    if (cajaBuscar) cajaBuscar.hidden = true;
+    cont.innerHTML = `
+      <div><h2 class="titulo-zonas">Elegí la zona</h2><p class="nota">Vas a ver solo los tramos de esa zona. Después la podés cambiar arriba.</p></div>
+      <div class="grilla-zonas">
+        ${todas.map(z => {
+          const av = sumarAvances(z.tramos.map(avanceTramo));
+          return `<button class="tarjeta tarjeta-zona" data-accion="zona" data-valor="${esc(z.nombre)}">
+            <strong class="tarjeta-titulo">${esc(z.nombre)}</strong>
+            ${barraEstados(av)}
+            <div class="fila-esp chico"><span>${z.tramos.length} tramo${z.tramos.length === 1 ? '' : 's'} · ${av.cert} de ${av.total} certificados</span><span class="gris">${av.pct}%</span></div>
+          </button>`;
+        }).join('')}
+      </div>
+      <p class="version centrado">v${VERSION_APP}</p>`;
+    return;
+  }
+  if (cajaBuscar) cajaBuscar.hidden = false;
+  if (cajaZonas) {
+    cajaZonas.innerHTML = `<div class="selector-zona" role="tablist" aria-label="Zona">
+      ${todas.map(z => `<button class="pill ${z.nombre === S.zona ? 'activo' : ''}" role="tab" aria-selected="${z.nombre === S.zona}" data-accion="zona" data-valor="${esc(z.nombre)}">${esc(z.nombre)}</button>`).join('')}
+    </div>`;
+  }
+
   const q = normalizar(S.busqueda);
-  const zonas = zonasDe(S.lista).map(z => ({
+  const zonas = todas.filter(z => z.nombre === S.zona).map(z => ({
     ...z,
     tramos: z.tramos.filter(t => !q || normalizar(`${t.linea} tramo ${t.tramoTxt || t.tramo} ${t.zona}`).includes(q))
   })).filter(z => z.tramos.length);
 
   cont.innerHTML = `
-    ${zonas.length ? '' : '<p class="nota">Ningún tramo coincide con la búsqueda.</p>'}
+    ${zonas.length ? '' : '<p class="nota">Ningún tramo de esta zona coincide con la búsqueda.</p>'}
     ${zonas.map(z => {
       const avZ = sumarAvances(z.tramos.map(avanceTramo));
       return `
@@ -621,6 +676,18 @@ app.addEventListener('click', async e => {
   if (acc === 'ninguno') { S.seleccion = new Set(); conservarScroll(vistaTramo); return; }
   if (acc === 'hoja-estado') { S.hoja = 'estado'; S.confirmar = null; conservarScroll(vistaTramo); return; }
   if (acc === 'accesos') { S.hoja = 'accesos'; conservarScroll(vistaTramo); return; }
+  if (acc === 'tema') {
+    const nuevo = temaActual() === 'oscuro' ? 'claro' : 'oscuro';
+    aplicarTema(nuevo); guardarPref('poda-tema', nuevo);
+    el.outerHTML = botonTema();
+    return;
+  }
+  if (acc === 'zona') {
+    S.zona = el.dataset.valor || ''; guardarPref('poda-zona', S.zona);
+    const m = app.querySelector('.scroll'); if (m) m.scrollTop = 0;
+    pintarListaInicio();
+    return;
+  }
   if (acc === 'cert') { abrirCert(tramoActual()); S.hoja = 'cert'; conservarScroll(vistaTramo); return; }
   if (acc === 'generar-pdf') return generarCert();
   if (acc === 'compartir-pdf') {

@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el teléfono para que abra sin señal.
 // Los datos (tramos, vanos) los maneja Firestore con su propia caché sin conexión.
-const VERSION = 'poda-v1.1.0';
+const VERSION = 'poda-v1.2.0';
 const APP = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/main.js', './js/db.js', './js/logica.js', './js/config.js', './js/fotos.js', './js/certificado.js',

@@ -14,6 +14,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Poda">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Tema elegido en este equipo (o el del sistema la primera vez), antes de pintar nada
+    try {
+      var t = localStorage.getItem('poda-tema') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro');
+      document.documentElement.dataset.tema = t;
+      if (t === 'oscuro') document.querySelector('meta[name=theme-color]').content = '#0B1411';
+    } catch (e) {}
+  </script>
   <script type="importmap">
   {
     "imports": {

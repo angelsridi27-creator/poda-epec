@@ -19,4 +19,4 @@ export const DOMINIO_USUARIOS = 'cuadrillas.app';
 // (implementación de la app web de API_PWA; la URL no cambia al publicar versiones nuevas).
 export const URL_FOTOS = 'https://script.google.com/macros/s/AKfycbz0IMl0nAI7lY8rtjzImtL0_URi38BNl3EETrYz1XiPKWCrdMZiMpM_PG4kfoh53UQ4CQ/exec';
 
-export const VERSION_APP = '1.1.0';
+export const VERSION_APP = '1.2.0';

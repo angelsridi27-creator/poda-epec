@@ -304,3 +304,84 @@ label.btn { flex-direction: row; }
 .fila-botones { display: flex; gap: 10px; flex-wrap: wrap; }
 .fila-botones .btn { flex: 1; }
 .hoja .aviso { margin: 0; }
+
+/* Firma y zonas */
+.firma-barra { background: var(--verde-osc); color: rgba(255,255,255,.82); font-size: 11.5px; letter-spacing: .04em; text-align: center; padding: calc(4px + env(safe-area-inset-top)) 12px 4px; }
+.firma-barra + .barra { padding-top: 10px; }
+.firma { display: block; margin-top: 6px; font-size: 13px; color: var(--gris); }
+.login-arriba { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; }
+.login-arriba .btn-icono { background: var(--superficie); color: var(--tinta); border: 1px solid var(--borde); }
+.selector-zona { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 0; scrollbar-width: none; }
+.selector-zona::-webkit-scrollbar { display: none; }
+.selector-zona .pill { flex-shrink: 0; }
+.titulo-zonas { font-size: 20px; margin-bottom: 4px; }
+.grilla-zonas { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.tarjeta-zona { text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.tarjeta-zona:hover { border-color: var(--verde); }
+.tarjeta-zona:focus-visible { outline: 3px solid #7DB8A2; outline-offset: 1px; }
+
+/* ---------------- Modo oscuro ---------------- */
+:root { --superficie: #fff; }
+:root[data-tema=oscuro] {
+  color-scheme: dark;
+  --verde: #0F6A4E;
+  --verde-osc: #0A3D2D;
+  --verde-claro: #16352B;
+  --fondo: #0D1311;
+  --superficie: #161E1B;
+  --superficie-2: #1D2723;
+  --tinta: #E4EBE8;
+  --gris: #9DAAA4;
+  --borde: #2A3632;
+  --borde-fuerte: #36443F;
+  --ambar-fondo: #33270F;
+  --ambar-borde: #7A5A1E;
+  --ambar-tinta: #F3D493;
+  --rojo: #F2867C;
+}
+:root[data-tema=oscuro] a, :root[data-tema=oscuro] .verde { color: #6CCBA4; }
+:root[data-tema=oscuro] .barra { background: #0B1411; border-bottom: 1px solid var(--borde); }
+:root[data-tema=oscuro] .firma-barra { background: #08100D; color: var(--gris); }
+:root[data-tema=oscuro] .login-marca h1 { color: #6CCBA4; }
+:root[data-tema=oscuro] .btn,
+:root[data-tema=oscuro] .btn-secundario,
+:root[data-tema=oscuro] .btn-peligro,
+:root[data-tema=oscuro] .tarjeta,
+:root[data-tema=oscuro] .vacio,
+:root[data-tema=oscuro] .pill,
+:root[data-tema=oscuro] .pie,
+:root[data-tema=oscuro] .hoja,
+:root[data-tema=oscuro] .buscador,
+:root[data-tema=oscuro] .resumen,
+:root[data-tema=oscuro] .tabla-caja,
+:root[data-tema=oscuro] input:not([type=checkbox]):not([type=color]),
+:root[data-tema=oscuro] select,
+:root[data-tema=oscuro] textarea { background: var(--superficie); color: var(--tinta); }
+:root[data-tema=oscuro] .btn-primario { background: var(--verde); border-color: var(--verde); color: #fff; }
+:root[data-tema=oscuro] .btn-primario:hover { background: #12805E; }
+:root[data-tema=oscuro] .btn-peligro { border-color: var(--rojo); color: var(--rojo); }
+:root[data-tema=oscuro] .pill.activo { background: var(--tinta); border-color: var(--tinta); color: var(--fondo); }
+:root[data-tema=oscuro] .lista li, :root[data-tema=oscuro] .tabla th { background: var(--superficie-2); }
+:root[data-tema=oscuro] .estado { background: var(--superficie-2); }
+:root[data-tema=oscuro] .estado-cert { background: #1A2A4D; color: #9DB8FF; }
+:root[data-tema=oscuro] .estado-pend { background: var(--ambar-fondo); color: var(--ambar-tinta); }
+:root[data-tema=oscuro] .estado-error { background: #3A1A17; color: var(--rojo); }
+:root[data-tema=oscuro] .avance { background: #26312D; }
+:root[data-tema=oscuro] .aviso-azul { background: #10263A; border-color: #2D5A85; color: #B7D5F2; }
+:root[data-tema=oscuro] .aviso-gris { background: var(--superficie-2); }
+:root[data-tema=oscuro] .aviso-rojo { background: #3A1A17; border-color: #7A3A33; color: #F6B9B2; }
+:root[data-tema=oscuro] .aviso-verde { background: #12302A; border-color: #2E6B55; color: #BDE8D6; }
+:root[data-tema=oscuro] .velo { background: rgba(0,0,0,.6); }
+:root[data-tema=oscuro] .toast { background: #E4EBE8; color: #0D1311; }
+:root[data-tema=oscuro] .toast-error { background: #F2867C; color: #200806; }
+/* Vanos y estados: el color del estado sobre fondo oscuro */
+:root[data-tema=oscuro] .vano { background: color-mix(in srgb, var(--c) 16%, var(--superficie)); border-color: var(--borde-fuerte); }
+:root[data-tema=oscuro] .vano-estado { color: color-mix(in srgb, var(--c) 55%, #fff); }
+:root[data-tema=oscuro] .vano-cert { border-color: #3F5FA8; }
+:root[data-tema=oscuro] .vano .tilde { color: var(--fondo); }
+:root[data-tema=oscuro] .opcion-estado { background: color-mix(in srgb, var(--c) 16%, var(--superficie)); color: var(--tinta); }
+:root[data-tema=oscuro] .opcion-cert { color: color-mix(in srgb, var(--c) 55%, #fff); }
+:root[data-tema=oscuro] .hoja strong[style] { filter: brightness(1.6); }
+:root[data-tema=oscuro] .vano-foto.en-cola { color: #E8B65A; }
+:root[data-tema=oscuro] .spinner { border-color: var(--borde); border-top-color: #6CCBA4; }
+[hidden] { display: none !important; }
